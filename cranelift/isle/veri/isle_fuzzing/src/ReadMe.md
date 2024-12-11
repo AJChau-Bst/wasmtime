@@ -1,112 +1,82 @@
-# Wellesley Programming System Lab and CS 340 Final Project: Creating a Fuzzer to randomly generate clif code from isle rules and run through Cranelift compiler
+# Isle Rule Converter and Clif Fuzzer
 
-Written by Annette Chau and Becky Chen
+## Authors
+Annette Chau and Becky Chen
+
+## Overview
+This Rust project is a tool for converting Isle (Instruction Selection Language) rules into Cranelift (Clif) instructions through a fuzzing approach. The primary goal is to randomly generate Clif instruction sequences from Isle rules and test their lowering capabilities.
+
+## Motivation
+Instruction lowering from Clif to low-level languages (ARM or x86) guided by ISLE can occasionally contain errors that might lead to vulnerabilities. As evidenced by CVE-2023-26489, there's a need for systematic fuzzing to identify potential issues in instruction lowering rules.
 
 ## Code Structure
+- `expr.rs`: Main file for parsing ISLE rules and generating random Clif modules
+- `instructions.txt`: List of valid instructions
+- `amod_unextended.isle`: Target ISLE rule for fuzzing
+- `automate_script.sh`: Shell script to automate Clif generation and compilation
 
-- **expr.rs**: Code for parsing ISLE rule and randomly generating clif module that matches the input ISLE rule. Our main file.
-- **instructions.txt**: A list of instructions
-- **amod_unextended.isle**: The target ISLE rule we are trying to fuzz. The main input to expr.rs.
-- **automate_script.sh** (in isle_fuzzing): The shell script to automate the process of generating an clif matching the input ISLE rule, and running said clif file through Cranelift to get the lowered ARM code. 
+## Key Components
 
-## Enums and Structs
+### Data Structures
+- `Expr`: Enumeration representing different expression types
+  - `Var`: Variables
+  - `Int`: Integer literals
+  - `Inst`: Instructions with arguments
+  - `NotAnInst`: Non-instruction expressions
+- `Ident`: Represents identifiers with position information
+- `Inst`: Represents instructions with name and arguments
+- `NotAnInst`: Represents non-instruction terms
 
-- **Expr**: Enumeration representing different types of expressions, including variables, integers, instructions, and non-instructions.
-- **Ident**: Structure representing an identifier.
-- **Inst**: Structure representing an instruction with its name and arguments.
-- **NotAnInst**: Structure representing a non-instruction with its name and arguments.
+### Core Functions
+- `convert_pattern()`: Converts ISLE patterns into expressions
+- `match_inst_or_non_inst()`: Classifies terms as instructions or non-instructions
+- `to_clif_list()`: Transforms expressions into Clif instructions
+- `format_output()`: Formats generated instructions into a Clif module
 
-## Functions
+## Installation and Setup
+1. Install Rust: [Rust Installation Guide](https://www.rust-lang.org/tools/install)
+2. Clone the repository:
+   ```
+   git clone git@github.com:AJChau-Bst/wasmtime.git
+   ```
+3. Install Wasmtime (follow repository README)
 
-- **ident_string**: Helper function to convert an identifier to a string.
-- **convert_pattern**: Converts ISLE patterns into expressions based on the type environment.
-- **lines_from_file**: Reads lines from a file and returns them as a vector of strings.
-- **convert_rules**: Parses ISLE file into rules and converts them into expressions.
-- **to_clif_list**: Converts expressions to CLIF instructions.
-- **format_output**: Formats the CLIF program output.
+## Manual Usage
 
-## Usage
-First, install and setup RUST following this link: https://www.rust-lang.org/tools/install. 
-
-Our code lives in this github repo: https://github.com/AJChau-Bst/wasmtime/tree/PSL-fuzzing
-
-To get our code, clone the repo https://github.com/AJChau-Bst/wasmtime/tree/PSL-fuzzing:
-```
-git clone git@github.com:AJChau-Bst/wasmtime.git
-```
-
-Install Wasmtime following the README in this link: [GitHub - avanhatt/wasmtime: Standalone JIT-style runtime for WebAssembly, using Cranelift](https://github.com/avanhatt/wasmtime)
-
-
-**Manual Use**
-
-To use expr.rs for clif module generation, run this command in the terminal when you are in wasmtime/cranelift/isle/veri/isle_fuzzing/src: 
+### Clif Module Generation
+Navigate to `wasmtime/cranelift/isle/veri/isle_fuzzing/src` and run:
 ```
 cargo run --bin expr
 ```
-This will write to the terminal an (may or may not) executable clif module. This uncertainty is normal and natural, as it is one of the characteristics of random generation. Keep running the command until you get a clif module that is executable following the instructions below.
 
-Be sure the filepath you are in looks similar to: wasmtime/cranelift/isle/veri/isle_fuzzing/src
-The imports in the Cargo.toml file include: 
-- **cranelift-isle = { path = "../../isle" }**
-- **rand = "0.8.4"**
--**regex = "1"**
+### Testing Generated Clif
+1. Copy generated code to `test.clif`
+2. Run compilation:
+   ```
+   cargo run -- compile --target aarch64 -D {custompath}/wasmtime/cranelift/isle/veri/isle_fuzzing/src/test.clif
+   ```
 
-Copy this generated code into a new file named 'test.clif', in wasmtime/cranelift/isle/veri/isle_fuzzing/src.
+## Automated Fuzzing
+1. Update paths in `automate_script.sh`
+2. Make script executable:
+   ```
+   chmod +x automate_script.sh
+   ```
+3. Run the script:
+   ```
+   ./automate_script.sh
+   ```
 
-To test the fuzzer and run the code generated above, go back to wasmtime/cranelift/isle and run this command in the terminal: 
-```
-cargo run -- compile --target aarch64 -D {custompath}/wasmtime/cranelift/isle/veri/isle_fuzzing/src/test.clif
-```
+## Limitations
+- Currently supports generating one Clif module at a time
+- Randomization can produce invalid programs
+- Works primarily on Macs with ARM chips (M1-M4)
+- Occasional incompatibility with type extensions (`.i16`, `.i32`, etc.)
 
-**Automation**
+## Tradeoffs and Challenges
+- Random generation may produce invalid Clif programs
+- Limited to single ISLE rule processing
+- Requires manual verification of generated code
 
-Make sure you are in wasmtime/cranelift/isle/veri/isle_fuzzing/.
-
-First, update the paths at the top of automate_script.sh with your local paths:
-
-- **EXPR_RS_PATH** is where expr.rs is located. 
-- **EXPR_DIR** is the folder where expr.rs is located
-- **TEST_CLIF_PATH** should be the path to the generated code stored in testauto.clif file in wasmtime/cranelift/ folder
-- **DIR_PATH** should be the path to your local wasmtime/cranelift/ folder
-
-Then, run this command in the terminal to make sure the script is executable:
-```
-chmod +x automate_script.sh
-```
-Last, run the script with:
-```
-./automate_script.sh
-```
-This will automatically go through the steps described in the manual use section, store the generated clif module in wasmtime/cranelift/isle/veri/isle_fuzzing/testauto.clif, and keep generating clif and run it through cranelift until an executable one is generated. This might take slightly more time, due to the nature of random generation generating invalid and unexecutable code. Please wait patiently until everything stops.
-
-Then, you will see the ISLE-guided, lowered ARM module in the terminal. This result can then be used to manually check whether there were errors in the ISLE rule that led to inaccurate lowering. 
-
-
-**Limitation**
-
-Note that this only works for Macs with the ARM Chips (M1, M2, M3 or M4).
-
-## General Problem
-
-When instruction lowering from clif to a low level language (ARM or x86), guided by ISLE, occasionally ISLE rules guide to lower have errors, leading to vulnerabilities, such as CVE-2023-26489: https://nvd.nist.gov/vuln/detail/CVE-2023-26489
-
-A fuzzer is one way to find inputs that the ISLE rules guide has difficulty lowering accurately by randomly generating outputs that are not always expected. This can help find bugs that were not anticipated. 
-
-## Tradeoffs, Limitations, Assumptions
-
-We tried different parsing methods (seen in the misc folder/main.rs), where we attempted to find rules through parenthesis counting instead of through the patterns given. 
-
-Currently our fuzzer has a limited scope, where we can only generate one clif module that matches one single input ISLE rule at once. In the future, we want to have it take in multiple files of ISLE rules. This will speed up the fuzzing process and generate code with more variety and sophisticated patterns. 
-
-This fuzzer is also not foolproof-- it occasionally generates invalid clif programs due to the extension (.i16, .i32, .i64) not always being compatible throughout the program. This is the tradeoff of using random generation. Our automatic approach partially tackles this issue. However, it still takes more than the ideal amount of time to generate an executable clif module.
-
-## Next Steps
-We want to be able to detect when the program can be lowered successfully. This would be more effective from a fuzzing perspective, to have the output efficiently checked against expected output.
-
-We also want to take in and generate multiple programs at a time, hopefully through more advanced automation.
-
-## Goals and Reflection
-Our goals did not change from our proposal. Quite the opposite, we were able to have a much clearer train of thought after receiving feedback for our proposal. We clarified our goals and tried our best to execute them. 
-
-We have completed most of our reach goals. 
+## Future Work
+- Adding more places to increase 'random' generation for testing
