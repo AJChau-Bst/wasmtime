@@ -1,7 +1,7 @@
 # Isle Rule Converter and Clif Fuzzer
 
 ## Authors
-Annette Chau and Becky Chen
+Becky Chen and Annette Chau
 
 ## Overview
 This Rust project is a tool for converting Isle (Instruction Selection Language) rules into Cranelift (Clif) instructions through a fuzzing approach. The primary goal is to randomly generate Clif instruction sequences from Isle rules and test their lowering capabilities.
